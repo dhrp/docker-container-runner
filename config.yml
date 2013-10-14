@@ -1,0 +1,10 @@
+mongodb:
+  image: "mongodb"
+  command: ["/usr/bin/mongod", "--config", "/etc/mongodb.conf"]
+  port: 27017
+
+rectangle:
+  image: "rectangle-im"
+  command: ["supervisord", "-n"]
+  port: 80
+  dep_env: ["MONGO_PORT=mongodb.exposed_port"]

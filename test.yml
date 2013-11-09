@@ -1,0 +1,6 @@
+sshd-sample:
+  image: "dhrp/sshd"
+  command: ["/usr/sbin/sshd", "-D"]
+  ports:  ["22","80"]
+  volumes: ['/tmp/runner/:/sites/']
+ 

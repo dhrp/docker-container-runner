@@ -1,4 +1,3 @@
-redis
 -e git+https://github.com/dotcloud/docker-py.git#egg=docker
 pyyaml
 jsonpath-rw

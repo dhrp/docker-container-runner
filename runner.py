@@ -2,7 +2,6 @@
 
 import yaml 
 import docker 
-import redis
 from jsonpath_rw import jsonpath, parse
 import sys
 import simplejson as json
@@ -22,13 +21,6 @@ for key, values in config.items():
    print "processing {}".format(key)
  
    container = values.get("container", None)
-   if container:
-      try:
-         result = d.start(container, binds=None)
-      except Exception as ex:
-         print ex
-      continue
-
    image = values.get("image", None)
    command = values.get("command", None)
    volumes = values.get("volumes", None)
@@ -37,10 +29,11 @@ for key, values in config.items():
    dep_env = values.get("dep_env", None)
    env = []
 
+
    # print ports
-   print "found image {}\n command {}\n volumes {}\n hostname {}\n ".format(image, command, volumes, hostname)
+   #print "found image {}\n command {}\n volumes {}\n hostname {}\n ".format(image, command, volumes, hostname)
    # print "found {} {} {}".format(image, command, volumes)
-   print "ports:", ports
+   #print "ports:", ports
 
    env_var = None
    if dep_env:
@@ -55,7 +48,7 @@ for key, values in config.items():
    c_ports = {}
    s_ports = {}
 
-   for port in ports:
+   for port in ports or []:
       parts = port.split(":")
       
       host_ip = ''
@@ -82,7 +75,7 @@ for key, values in config.items():
 
    vols = {}
    binds = {}
-   for volume in volumes:
+   for volume in volumes or []:
       parts = volume.split(":")
       # host mount (e.g. /mnt:/tmp, bind mounts host's /tmp to /mnt in the container)
       if len(parts) == 2:
@@ -94,6 +87,13 @@ for key, values in config.items():
 
    print 'volumes = ', vols
 
+   
+   if container:
+      try:
+         result = d.start(container, port_bindings=s_ports, binds=binds)
+      except Exception as ex:
+         print ex
+      continue
 
    container = d.create_container(image, command, environment=env_var, volumes=vols, ports=c_ports, detach=True)
    result = d.start(container, port_bindings=s_ports, binds=binds)

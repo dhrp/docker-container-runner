@@ -2,15 +2,15 @@
 
 from setuptools import setup
 
-setup(name='dcs',
-   version='0.1.1',
+setup(name='dcr',
+   version='0.1.2',
    description='Docker Container Start - start Docker Containers from YML',
    url='http://github.com/dhrp/docker-runner',
    author='Thatcher Peskens',
    author_email='thatcher@docker.com',
    license='MIT',
 #   packages=['docker_container_start'],
-   scripts=['dcs'],
+   scripts=['dcr'],
    install_requires=[
       'docker-py==0.2.2',
       'simplejson',

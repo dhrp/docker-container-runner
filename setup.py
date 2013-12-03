@@ -9,12 +9,12 @@ setup(name='dcr',
    author='Thatcher Peskens',
    author_email='thatcher@docker.com',
    license='MIT',
-#   packages=['docker_container_start'],
    scripts=['dcr'],
    install_requires=[
       'docker-py==0.2.2',
       'simplejson',
-      'jsonpath_rw'
+      'jsonpath_rw',
+      'pyyaml'
    ],
    dependency_links=[
       'https://github.com/dotcloud/docker-py/tarball/master#egg=docker-py-0.2.2'

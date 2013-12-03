@@ -5,8 +5,17 @@ import docker
 from jsonpath_rw import jsonpath, parse
 import sys
 import simplejson as json
+import os
 
-d = docker.Client(base_url='unix://var/run/docker.sock', version="1.5")
+try:
+    socket = os.environ['DOCKER_SOCKET']
+except KeyError as ex:
+    socket = "unix://var/run/docker.sock"
+    print "DOCKER_SOCKET environment variable not found, using default ", socket
+
+
+d = docker.Client(base_url=socket, version="1.5", timeout=60)
+
 
 try:
    stream = open(sys.argv[1])
@@ -104,6 +113,28 @@ for key, values in config.items():
    
    config[key]['PortMapping'] = details["NetworkSettings"]["PortMapping"]
    print config[key]
+
+
+   print "Do you want to save this setup (y/n)"
+   c = sys.stdin.read(1)
+
+   if c == 'y':
+      import redis
+
+      r = redis.StrictRedis(host='blue1.koffiedik.net', port=6379, db=0)
+
+      port = details[u'NetworkSettings'][u'Ports'][u'80/tcp'][0][u'HostPort']
+      backend = "http://blue3.koffiedik.net:{}".format(port)
+
+      r.lpush('frontend:docker.blue3.koffiedik.net', backend)
+
+      hipache_config = r.lrange('frontend:docker.blue3.koffiedik.net', 0, -1)
+      print hipache_config
+
+      print 'ok'
+
+   else:
+      print "not saving the config to hipache redis"
 
 
 print config

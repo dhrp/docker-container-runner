@@ -1,0 +1,5 @@
+default:
+  hipaches: ['blue3.koffiedik.net:6379']
+  daemons: ['http://blue3.koffiedik.net:4243', 'http://146.185.183.64:4243']
+  base_domain: ['tea.project.io']
+

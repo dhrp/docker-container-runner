@@ -3,21 +3,22 @@
 from setuptools import setup
 
 setup(name='dcr',
-   version='0.1.2',
-   description='Docker Container Start - start Docker Containers from YML',
-   url='http://github.com/dhrp/docker-runner',
-   author='Thatcher Peskens',
-   author_email='thatcher@docker.com',
-   license='MIT',
-   scripts=['dcr'],
-   install_requires=[
-      'docker-py==0.2.2',
-      'simplejson',
-      'jsonpath_rw',
-      'pyyaml'
-   ],
-   dependency_links=[
-      'https://github.com/dotcloud/docker-py/tarball/master#egg=docker-py-0.2.2'
-   ],
-   zip_safe=False)
+      version='0.1.3',
+      description='Docker Container Start - start Docker Containers from YML',
+      url='http://github.com/dhrp/docker-runner',
+      author='Thatcher Peskens',
+      author_email='thatcher@docker.com',
+      license='MIT',
+      scripts=['dcr.py'],
+      install_requires=[
+          'docker-py==0.2.2',
+          'simplejson',
+          'jsonpath_rw',
+          'pyyaml',
+          'redis'
+      ],
+      dependency_links=[
+          'https://github.com/dotcloud/docker-py/tarball/master#egg=docker-py-0.2.2'
+      ],
+      zip_safe=False)
 

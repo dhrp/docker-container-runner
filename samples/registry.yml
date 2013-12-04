@@ -1,0 +1,4 @@
+registry:
+  image: "stackbrew/registry"
+  ports: ['5000']
+  cmd: ["cd /docker-registry && ./setup-configs.sh && ./run.sh"]

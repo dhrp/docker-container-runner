@@ -1,0 +1,7 @@
+wwwdockercom:
+  image: "blue3.koffiedik.net:49153/dhrp/www.docker.com"
+  ports: ['8000']
+  command: ["python", "/website/manage.py", "runserver", "0.0.0.0:8000"]
+#  command: ["sleep", "30"]
+  name: "wwwdockercom"
+

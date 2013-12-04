@@ -1,0 +1,5 @@
+airfield:
+  image: "dhrp/airfield"
+  command: ["node", "/airfield/airfield.js"]
+  env: ["REDIS_HOST=blue3.koffiedik.net", "REDIS_PORT=6379"]
+  ports: ['3000:3000']

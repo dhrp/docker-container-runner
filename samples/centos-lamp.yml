@@ -1,0 +1,4 @@
+centos-lamp:
+  image: "dhrp/centos-lamp"
+  command: ["supervisord", "-n"]
+  ports: ['80']

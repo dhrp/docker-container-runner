@@ -2,3 +2,4 @@ hipache:
   image: "stackbrew/hipache"
   command: ["supervisord", "-n"]
   ports: ['80:80', "6379:6379"]
+  release_name: "hipache-0.1"

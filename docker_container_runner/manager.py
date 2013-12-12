@@ -1,5 +1,10 @@
 import docker
+from docker import APIError
 import redis
+import bgtunnel
+from bgtunnel import SSHTunnelError
+import sys
+from requests.exceptions import ConnectionError
 
 
 class DockerDaemon:
@@ -7,120 +12,223 @@ class DockerDaemon:
     connection = {}
 
     def __init__(self, host):
+        self.host_name = host.split('//')[1].split(":")[0]
         self.host = host
-        self.connection = docker.Client(base_url=host, version="1.7", timeout=60)
+
+        forwarder = self.connect_channel(self.host_name)
+        entrypoint = "http://{}".format(forwarder.bind_string)
+
+        self.connection = docker.Client(base_url=entrypoint, version="1.7", timeout=60)
+
+    def connect_channel(self, host):
+        try:
+            forwarder = bgtunnel.open(ssh_user="docker",
+                                      ssh_address=host,
+                                      host_port=str(4243))
+        except SSHTunnelError as ex:
+            sys.exit(ex)
+
+        return forwarder
 
 
 class Hipache:
-
     def __init__(self, host, port):
         self.connection = redis.StrictRedis(host=host, port=port, db=0)
 
 
 class Container:
 
-    host = ""
-    port = ""
-    container_id = ""
+    daemon = None
+    config = None
+
+    def __init__(self, config, daemon):
+        self.config = config
+        self.daemon = daemon
+
+    @property
+    def details(self):
+        try:
+            details = self.daemon.connection.inspect_container(self.config['release_name'])
+            return details
+        except APIError as ex:
+            print ex
+            return None
+        except ConnectionError as ex:
+            print "Failed to connect to daemon ", ex
+            sys.exit(1)
+
+    @property
+    def status(self):
+        try:
+            running = self.details['State']['Running']
+            if running:
+                status = "running"
+            else:
+                status = "stopped"
+        except Exception:
+            status = "doesnotexist"
+
+        return "container {release_name} on host {daemon}, Running= {status}" \
+            .format(release_name=self.config['release_name'],
+                    daemon=self.daemon.host_name,
+                    status=status)
+
+    def pull(self):
+        repository = self.config['image']
+        print "trying to pull {} on {}".format(repository, self.daemon.host_name)
+
+        try:
+            results = self.daemon.connection.pull(repository, tag=None)
+            print results
+            return results
+        except APIError as ex:
+            print ex
+            return None
+
+    def get_image(self):
+        return self.daemon.connection.images(name=self.config['image'])
+
+    def create(self):
+        print "creating container on {}".format(self.daemon.host_name)
+        try:
+            self.daemon.connection.create_container(self.config['image'],
+                                                self.config['command'],
+                                                volumes=self.config['vols'],
+                                                ports=self.config['c_ports'],
+                                                environment=self.config['env'],
+                                                detach=True,
+                                                name=self.config['release_name'])
+        except APIError as ex:
+            print "failed to create container: ", ex
+            return ex
+
+
+    def start(self):
+        """
+        starts one of the containers of this application
+        """
+        print "starting container on {}".format(self.daemon.host_name)
+        if not self.details['State']['Running'] is True:
+            result = self.daemon.connection.start(self.config['release_name'],
+                                                  port_bindings=self.config['s_ports'],
+                                                  binds=self.config['binds'])
+            return result
+        else:
+            return None
+
+    def stop(self):
+        print "stopping container on {}".format(self.daemon.host_name)
+        if not self.details['State']['Running'] is False:
+            result = self.daemon.connection.stop(self.config['release_name'])
+            return result
+        else:
+            return None
 
 
 class Application:
 
     config = {}
     container = {}
-    containers = []
+    containers = {}
     results = []
 
-    def __init__(self, name):
+    def __init__(self, name, config, settings, cluster="default"):
         self.name = name
+        self.config = config
+        self.settings = settings
+        self.daemons = self.connect_daemons(self.settings[cluster]['daemons'])
 
-    def set_configuration(self, configuration):
-        self.config = configuration
+        release_name = self.config.get('release_name', None)
+        if not release_name:
+            print "error, release name not set, check your yml file"
 
-    # def containers(self):
-    #     """
-    #     holds the list of created containers
-    #     """
 
-    def create(self, daemon):
+    def connect_daemons(self, daemon_list):
+        daemons = []
+        for host in daemon_list:
+            daemons.append(DockerDaemon(host))
+        return daemons
+
+    def get_containers(self):
         """
-        creates the container specified in the configuration
-        :param daemons: the daemon to connect to
+        get containers from the existing container dictionary index by daemon hostname
+        or create new containers and add them to this dictionary
         """
-
-        # TODO: make this something real and usefull
-        # see if the container already exists
-        try:
-            existing_container = daemon.connection.inspect_container('insane_turingss')
-        except Exception as ex:
-            pass
-
-        container = daemon.connection.create_container(self.config['image'],
-                                                   self.config['command'],
-                                                   volumes=self.config['vols'],
-                                                   ports=self.config['c_ports'],
-                                                   environment=self.config['env'],
-                                                   detach=True)
-        container['daemon'] = daemon
-        return container
-
-    def create_all(self, daemons):
-        for daemon in daemons:
-            container = self.create(daemon)
-            self.containers.append(container)
-
-        # self.container = self.containers[0]
+        for daemon in self.daemons:
+            try:
+                container = self.containers[daemon.host]
+            except KeyError:
+                container = Container(self.config, daemon)
+                self.containers[daemon.host] = container
         return self.containers
 
-    def start(self, container):
+    def create_containers(self):
         """
-        starts one of the containers of this application
+        creates the container specified in the configuration
+        :param daemon: the daemon to connect to
         """
-        result = container['daemon'].connection.start(container,
-                                         port_bindings=self.config['s_ports'],
-                                         binds=self.config['binds'])
-        return result
+        for key, container in self.containers.items():
+            container.create()
 
-    def start_all(self, containers):
+        return "success"
+
+    def pull_image(self):
+        for key, container in self.containers.items():
+            container.pull()
+
+    def start_containers(self):
         """
         starts container on all hosts
         """
-
-        for container in containers:
-            result = self.start(container)
-            self.results.append(result)
-
-        return self.results
+        for key, container in self.containers.items():
+            container.start()
+        return "success"
 
     def get_details(self, container):
         """
         get the container details
         """
-        container['details'] = container['daemon'].connection.inspect_container(container)
+        container['details'] = container['daemon'].connection.inspect_container(self.config['release_name'])
         return container
 
-    def register(self, hipache, frontend, backend_port, container):
+    def get_status(self):
+        for key, container in self.containers.items():
+            print container.status
+
+    def register(self):
         """
         registers the container to a specified frontend
         """
 
-        port = container['details'][u'NetworkSettings'][u'Ports'][backend_port][0][u'HostPort']
-        print port
-
+        backend_port = self.config['c_ports'].keys()[0]
+        frontend = "{}.{}".format(self.name, self.settings['default']['base_domain'][0])
         front = "frontend:{}".format(frontend)
-        backend_address = container['daemon'].host.split('//')[1].split(":")[0]
 
-        backend = "http://{}:{}".format(backend_address, port)
+        for name, container in self.containers.items():
+            port = container.details[u'NetworkSettings'][u'Ports'][backend_port][0][u'HostPort']
+            print port
 
-        # check length
-        length = hipache.connection.llen(front)
-        if not length > 0:
-            hipache.connection.rpush(front, self.name)
+            # backend_address = container.details['host'].split('//')[1].split(":")[0]
+            backend_address = container.daemon.host_name
+            backend = "http://{}:{}".format(backend_address, port)
 
-        hipache.connection.rpush(front, backend)
+            self.write(front, backend)
 
-        hipache_config = hipache.connection.lrange(front, 0, -1)
-        print hipache_config
+    def write(self, front, backend):
+
+        for hipache_config in self.settings['default']['hipaches']:
+            hipache_host, hipache_port = hipache_config.split(':')
+            hipache = Hipache(hipache_host, int(hipache_port))
+
+            # check length
+            length = hipache.connection.llen(front)
+            if not length > 0:
+                hipache.connection.rpush(front, self.name)
+
+            hipache.connection.rpush(front, backend)
+
+            hipache_config = hipache.connection.lrange(front, 0, -1)
+            print hipache_config
 
     def unregister(self, frontend):
         """

@@ -2,7 +2,6 @@ import yaml
 
 
 def read_appconfig(filename):
-    print filename
 
     try:
         stream = open(filename)
@@ -17,8 +16,6 @@ def read_appconfig(filename):
     for key, values in config.items():
         directives[key] = {}
 
-        print "processing {}".format(key)
-
         # simple directives
         directives[key]['container'] = values.get("container", None)
         directives[key]['image'] = values.get("image", None)
@@ -26,6 +23,7 @@ def read_appconfig(filename):
         directives[key]['hostname'] = values.get("hostname", None)
         directives[key]['dep_env'] = values.get("dep_env", None)
         directives[key]['env'] = values.get("env", None)
+        directives[key]['release_name'] = values.get("release_name", None)
 
         # more complex ones
 
@@ -57,8 +55,6 @@ def read_appconfig(filename):
             c_ports[container_port] = {}
             s_ports[container_port] = [{'HostIp': host_ip, 'HostPort': host_port}]
 
-        print "s_ports = ", s_ports
-
         directives[key]['c_ports'] = c_ports
         directives[key]['s_ports'] = s_ports
 
@@ -77,8 +73,6 @@ def read_appconfig(filename):
             else:
                 vols[parts[0]] = {}
 
-        print 'volumes = ', vols
-
         directives[key]['vols'] = vols
         directives[key]['binds'] = binds
 
@@ -86,8 +80,6 @@ def read_appconfig(filename):
 
 
 def read_settings(filename):
-    print filename
-
     try:
         stream = open(filename)
     except IOError as err:
@@ -95,20 +87,5 @@ def read_settings(filename):
         return err
 
     config = yaml.load(stream)
-
-    # return yaml.load(stream)
-    #
-    # directives = {}
-    #
-    # for key, values in config.items():
-    #     directives[key] = {}
-    #
-    #     print "processing {}".format(key)
-    #
-    #     directives[key]['base_domains'] = values.get("base_domains", None)[0]
-    #     directives[key]['hipaches'] = values.get("hipaches", None)
-    #     directives[key]['daemons'] = values.get("daemons", None)
-    #
-
     return config
 

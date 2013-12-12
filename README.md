@@ -24,3 +24,15 @@ annickspoelstra:
   volumes: ['/var/sites/annickspoelstra.nl/data/:/data/', '/var/sites/annickspoelstra.nl/files/:/site/']
   env: ["REDIS_HOST=blue1.koffiedik.net", "REDIS_PORT=6379"]
 ```
+
+
+
+Setup your system (example)
+
+* Install docker
+* Make dir .ssh with chmod 700
+* Add a 'docker' user: ``sudo useradd -m -g docker docker`` with its default group named docker.
+* Start docker with -H tcp://localhost:4243 -H unix:///var/run/docker.sock
+
+Add "-D -H=unix:///var/run/docker.sock -H=tcp://127.0.0.1:4243" to /etc/default/docker
+

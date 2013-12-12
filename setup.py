@@ -15,7 +15,8 @@ setup(name='dcr',
           'simplejson',
           'jsonpath_rw',
           'pyyaml',
-          'redis'
+          'redis',
+          'bgtunnel'
       ],
       dependency_links=[
           'https://github.com/dotcloud/docker-py/tarball/master#egg=docker-py-0.2.2'

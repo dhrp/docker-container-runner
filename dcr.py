@@ -6,83 +6,88 @@ from docker_container_runner import utils
 from docker_container_runner.manager import Application, DockerDaemon, Hipache
 
 
+settings = utils.read_settings('settings.yml')
 
-try:
-    stream = open(sys.argv[1])
-except:
+
+
+def initialize():
+    """
+    start it
+    """
+
+    directives = utils.read_appconfig(sys.argv[2])
+
+    name, config = directives.items()[0]
+    release_name = config['release_name']
+
+    # Create the application
+    application = Application(release_name, config, settings)
+
+    # get (unitialized) containers
+    containers = application.get_containers()
+
+    for name, container in containers.items():
+        print container.status
+
+    return application
+
+
+def create():
+    application = initialize()
+    application.create_containers()
+
+
+def start():
+    application = initialize()
+    application.create_containers()
+    application.start_containers()
+    application.get_status()
+
+
+def pull():
+    application = initialize()
+    application.pull_image()
+
+
+def register():
+    application = initialize()
+    application.register()
+
+
+# setup the application from the config file
+# applications = create_applications()
+
+def print_usage():
     print \
     """
     usage:
 
-    dcr.py [configfile.yml]
+    dcr.py [status|create|start|pull] [configfile.yml]
     """
-    sys.exit()
 
-settings = utils.read_settings('settings.yml')
-directives = utils.read_appconfig(sys.argv[1])
+try:
+    stream = open(sys.argv[2])
+except:
+    print_usage()
+    sys.exit(1)
 
-
-print directives
-
-def create_applications():
-    applications = []
-    for key, value in directives.items():
-        application = Application(key)
-        application.set_configuration(value)
-        applications.append(application)
-
-    print applications
-
-    return applications
-
-def connect_daemons(settings):
-
-    daemons = []
-
-    for host in settings:
-        daemons.append(DockerDaemon(host))
-
-    return daemons
+directives = utils.read_appconfig(sys.argv[2])
 
 
-def main(application):
-    """
-    start it
-    """
-    # connect to the docker daemon
-    # daemon = DockerDaemon(DAEMON_HOST, DAEMON_PORT)
+cmd = sys.argv[1]
 
-    target = 'default'
-    daemons = connect_daemons(settings[target]['daemons'])
-    daemon = daemons[0]
-
-    # create the container on the daemon
-    containers = application.create_all(daemons)
-
-    # start the container
-    results = application.start_all(containers)
-
-    for container in containers:
-
-        # inspect the container
-        container = application.get_details(container)
-
-        # register the container to the frontend
-        backend_port = application.config['c_ports'].keys()[0]
-        frontend = "{}.{}".format(application.name, settings['default']['base_domain'][0])
-
-        for hipache_config in settings['default']['hipaches']:
-            hipache_host, hipache_port = hipache_config.split(':')
-
-            hipache = Hipache(hipache_host, int(hipache_port))
-
-            application.register(hipache, frontend, backend_port=backend_port, container=container)
+if cmd == "status":
+    initialize()
+elif cmd == "create":
+    create()
+elif cmd == "start":
+    start()
+elif cmd == "pull":
+    pull()
+elif cmd == "register":
+    register()
 
 
-
-
-# setup the application from the config file
-applications = create_applications()
-
-main(applications[0])
-
+else:
+    print_usage()
+    sys.exit(1)

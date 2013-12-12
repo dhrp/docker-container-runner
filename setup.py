@@ -3,13 +3,13 @@
 from setuptools import setup
 
 setup(name='dcr',
-      version='0.1.3',
+      version='0.1.4',
       description='Docker Container Start - start Docker Containers from YML',
       url='http://github.com/dhrp/docker-runner',
       author='Thatcher Peskens',
       author_email='thatcher@docker.com',
       license='MIT',
-      scripts=['dcr.py'],
+      scripts=['dcr'],
       install_requires=[
           'docker-py==0.2.2',
           'simplejson',

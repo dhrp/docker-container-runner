@@ -11,14 +11,18 @@ class DockerDaemon:
     host = ""
     connection = {}
 
-    def __init__(self, host):
-        self.host_name = host.split('//')[1].split(":")[0]
+    def __init__(self, host, ssh=True):
+        self.host_name, self.host_port = host.split('//')[1].split(":")
         self.host = host
 
-        forwarder = self.connect_channel(self.host_name)
-        entrypoint = "http://{}".format(forwarder.bind_string)
+        if ssh:
+            forwarder = self.connect_channel(self.host_name)
+            entrypoint = "http://{}".format(forwarder.bind_string)
+        else:
+            entrypoint = "http://{}:{}".format(self.host_name, self.host_port)    
 
-        self.connection = docker.Client(base_url=entrypoint, version="1.7", timeout=60)
+        print entrypoint
+        self.connection = docker.Client(base_url=entrypoint, version="1.7")
 
     def connect_channel(self, host):
         try:
@@ -100,7 +104,7 @@ class Container:
                                                 name=self.config['release_name'])
         except APIError as ex:
             print "failed to create container: ", ex
-            return ex
+            return None
 
 
     def start(self):
@@ -136,17 +140,19 @@ class Application:
         self.name = name
         self.config = config
         self.settings = settings
-        self.daemons = self.connect_daemons(self.settings[cluster]['daemons'])
+        
+        use_ssh = settings[cluster].get('use_ssh', True)
+        self.daemons = self.connect_daemons(self.settings[cluster]['daemons'], ssh=use_ssh)
 
         release_name = self.config.get('release_name', None)
         if not release_name:
             print "error, release name not set, check your yml file"
 
 
-    def connect_daemons(self, daemon_list):
+    def connect_daemons(self, daemon_list, ssh):
         daemons = []
         for host in daemon_list:
-            daemons.append(DockerDaemon(host))
+            daemons.append(DockerDaemon(host, ssh))
         return daemons
 
     def get_containers(self):

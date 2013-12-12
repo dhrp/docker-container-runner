@@ -2,4 +2,4 @@ default:
   hipaches: ['blue3.koffiedik.net:6379']
   daemons: ['http://blue3.koffiedik.net:4243', 'http://blue4.koffiedik.net:4243']
   base_domain: ['tea.project.io']
-
+  use_ssh: "False"

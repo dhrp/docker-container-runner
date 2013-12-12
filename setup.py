@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='dcr',
-      version='0.1.4',
+      version='0.1.5',
       description='Docker Container Start - start Docker Containers from YML',
       url='http://github.com/dhrp/docker-runner',
       author='Thatcher Peskens',
@@ -19,7 +19,7 @@ setup(name='dcr',
           'bgtunnel'
       ],
       dependency_links=[
-          'https://github.com/dotcloud/docker-py/tarball/master#egg=docker-py-0.2.2'
+          'git+git://github.com/dotcloud/docker-py.git@a60c1cd3a8cfe6bfb11f22a749461de0fd2835ee#egg=docker-py-0.2.2'
       ],
       zip_safe=False)
 

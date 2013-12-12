@@ -16,7 +16,7 @@ class DockerDaemon:
         self.host = host
 
         if ssh:
-            forwarder = self.connect_channel(self.host_name)
+            forwarder = self.connect_channel(self.host_name, self.host_port)
             entrypoint = "http://{}".format(forwarder.bind_string)
         else:
             entrypoint = "http://{}:{}".format(self.host_name, self.host_port)    
@@ -24,11 +24,11 @@ class DockerDaemon:
         print entrypoint
         self.connection = docker.Client(base_url=entrypoint, version="1.7")
 
-    def connect_channel(self, host):
+    def connect_channel(self, host, port):
         try:
             forwarder = bgtunnel.open(ssh_user="docker",
                                       ssh_address=host,
-                                      host_port=str(4243))
+                                      host_port=port)
         except SSHTunnelError as ex:
             sys.exit(ex)
 
@@ -188,6 +188,14 @@ class Application:
         """
         for key, container in self.containers.items():
             container.start()
+        return "success"
+
+    def stop_containers(self):
+        """
+        starts container on all hosts
+        """
+        for key, container in self.containers.items():
+            container.stop()
         return "success"
 
     def get_details(self, container):

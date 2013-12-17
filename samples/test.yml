@@ -1,6 +1,0 @@
-sshd-sample:
-  image: "dhrp/sshd"
-  command: ["/usr/sbin/sshd", "-D"]
-  ports:  ["22","80"]
-  release_name: "dhrp_sshd-0.1"
- 

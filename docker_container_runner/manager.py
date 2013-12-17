@@ -71,11 +71,7 @@ class Container:
                 status = "stopped"
         except Exception:
             status = "doesnotexist"
-
-        return "container {release_name} on host {daemon}, Running= {status}" \
-            .format(release_name=self.config['release_name'],
-                    daemon=self.daemon.host_name,
-                    status=status)
+        return status
 
     def pull(self):
         repository = self.config['image']
@@ -104,7 +100,7 @@ class Container:
                                                 name=self.config['release_name'])
         except APIError as ex:
             print "failed to create container: ", ex
-            return None
+            return 1, "Failed to create container", ex
 
 
     def start(self):
@@ -173,10 +169,12 @@ class Application:
         creates the container specified in the configuration
         :param daemon: the daemon to connect to
         """
+        status = []
         for key, container in self.containers.items():
-            container.create()
+            result = container.create()
+            status.append(result)
 
-        return "success"
+        return status
 
     def pull_image(self):
         for key, container in self.containers.items():
@@ -206,8 +204,14 @@ class Application:
         return container
 
     def get_status(self):
+        status = []
         for key, container in self.containers.items():
-            print container.status
+            print "container {release_name} on host {daemon}, Running={status}" \
+                .format(release_name=container.config['release_name'],
+                        daemon=container.daemon.host_name,
+                        status=container.status)
+            status.append(container.status)
+        return status
 
     def register(self):
         """

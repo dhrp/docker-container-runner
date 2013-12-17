@@ -16,6 +16,7 @@ Arguments in yml can be specified with docker commandline like arguments.
 - cmd
 
 example config:
+
 ```
 annickspoelstra:
   image: "tea/ghostblog"
@@ -24,7 +25,6 @@ annickspoelstra:
   volumes: ['/var/sites/annickspoelstra.nl/data/:/data/', '/var/sites/annickspoelstra.nl/files/:/site/']
   env: ["REDIS_HOST=blue1.koffiedik.net", "REDIS_PORT=6379"]
 ```
-
 
 
 Setup your system (example)

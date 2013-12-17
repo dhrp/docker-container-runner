@@ -1,0 +1,5 @@
+test_application:
+  image: "busybox"
+  command: ["sleep", "200"]
+  ports:  ["80"]
+  release_name: "test_application-0.1"

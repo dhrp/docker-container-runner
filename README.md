@@ -17,6 +17,7 @@ Arguments in yml can be specified with docker commandline like arguments.
 
 example config:
 
+
 ```
 annickspoelstra:
   image: "tea/ghostblog"
@@ -26,7 +27,6 @@ annickspoelstra:
   env: ["REDIS_HOST=blue1.koffiedik.net", "REDIS_PORT=6379"]
 ```
 
-
 Setup your system (example)
 
 * Install docker
@@ -35,4 +35,9 @@ Setup your system (example)
 * Start docker with -H tcp://localhost:4243 -H unix:///var/run/docker.sock
 
 
-# Add "-D -H=unix:///var/run/docker.sock -H=tcp://127.0.0.1:4243" to /etc/default/docker
+`Add "-D -H=unix:///var/run/docker.sock -H=tcp://127.0.0.1:4243" to /etc/default/docker`
+
+Setting up your local environment to login
+
+source ~/Sync/docker-io/setenv.sh
+

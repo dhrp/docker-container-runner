@@ -6,7 +6,12 @@ from docker_container_runner import utils
 from docker_container_runner.manager import Application, DockerDaemon, Hipache
 
 
-settings = utils.read_settings(sys.argv[3])
+# try:
+#     settingsfile = sys.argv[3]
+# except:
+settingsfile = "settings.yml"
+
+settings = utils.read_settings(settingsfile)
 
 
 def initialize():
@@ -14,7 +19,7 @@ def initialize():
     start it
     """
 
-    directives = utils.read_appconfig(sys.argv[2])
+    directives = utils.read_appconfig(sys.argv[1])
 
     name, config = directives.items()[0]
     release_name = config['release_name']
@@ -42,17 +47,6 @@ def start():
     application.start_containers()
     application.get_status()
 
-
-def pull():
-    application = initialize()
-    application.pull_image()
-
-
-def register():
-    application = initialize()
-    application.register()
-
-
 def stop():
     application = initialize()
     application.stop_containers()
@@ -70,15 +64,15 @@ def print_usage():
     """
 
 try:
-    stream = open(sys.argv[2])
+    stream = open(sys.argv[1])
 except:
     print_usage()
     sys.exit(1)
 
-directives = utils.read_appconfig(sys.argv[2])
+directives = utils.read_appconfig(sys.argv[1])
 
 
-cmd = sys.argv[1]
+cmd = sys.argv[2]
 
 if cmd == "status":
     initialize()
@@ -88,11 +82,28 @@ elif cmd == "start":
     start()
 elif cmd == "stop":
     stop()
-elif cmd == "pull":
-    pull()
-elif cmd == "register":
-    register()
 
+elif cmd == "pull":
+    application = initialize()
+    application.login_registry()
+    application.pull_image()
+
+elif cmd == "register":
+    try:
+        domain = sys.argv[3]
+    except BaseException as ex:
+        sys.exit("please provide a domain name to register")
+
+    application = initialize()
+    application.register(domain)
+
+elif cmd == "login":
+    application = initialize()
+    application.login_registry()
+
+elif cmd == "remove":
+    application = initialize()
+    application.remove_containers()
 
 else:
     print_usage()

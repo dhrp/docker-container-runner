@@ -1,5 +1,5 @@
 test_application:
-  image: "busybox"
+  image: "dcrtest/private"
   command: ["sleep", "200"]
   ports:  ["80", "81:81"]
   volumes: ["testdir", "/tmp:testdir2"]

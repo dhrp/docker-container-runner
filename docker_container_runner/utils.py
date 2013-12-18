@@ -1,5 +1,6 @@
 import yaml
-
+import sys
+import os
 
 def read_appconfig(filename):
 
@@ -26,6 +27,7 @@ def read_appconfig(filename):
         directives[key]['release_name'] = values.get("release_name", None)
 
         # more complex ones
+        directives[key]['registry_login'] = try_replace_vars(values.get("registry_login", None))
 
         # PORTS
         ports = values.get("ports", None)
@@ -79,6 +81,24 @@ def read_appconfig(filename):
     return directives
 
 
+def try_replace_vars(string):
+    if string is None:
+        return None
+
+    parts = string.split(":")
+    arr = []
+    for part in parts:
+        if part.startswith("$"):
+            try:
+                arr.append(os.environ[part[1:]])
+            except KeyError as err:
+                error = err.message, " key not set in (virtual) environment"
+                sys.exit(error)
+        else:
+            arr.append(part)
+    return ":".join(arr)
+
+
 def read_settings(filename='settings.yml'):
     try:
         stream = open(filename)
@@ -87,5 +107,8 @@ def read_settings(filename='settings.yml'):
         return err
 
     config = yaml.load(stream)
+    for key, value in config['default'].items():
+        if key == "registry_login":
+            config['default'][key] = try_replace_vars(value)
     return config
 

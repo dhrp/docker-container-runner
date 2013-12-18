@@ -1,6 +1,7 @@
 
 import unittest
 import docker
+import os
 
 from docker_container_runner import utils
 from docker_container_runner.manager import Application, DockerDaemon, Hipache
@@ -12,6 +13,10 @@ class BaseTestCase(unittest.TestCase):
     tmp_containers = []
 
     def setUp(self):
+        # os.env['REGISTRY_PASS'] = err, "1secretpassword"
+        os.environ['REGISTRY_USER'] = "dcrtest"
+        os.environ['REGISTRY_PASS'] = "1secretpassword"
+        os.environ['REGISTRY_EMAIL'] = "thatcher+dcr@docker.com"
 
         directives = utils.read_appconfig("test_application.yml")
         name, config = directives.items()[0]
@@ -19,7 +24,7 @@ class BaseTestCase(unittest.TestCase):
         release_name = config['release_name']
 
         # Create the application
-        settings = utils.read_settings('test_settings.yml')
+        settings = utils.read_settings('settings.yml')
         application = Application(release_name, config, settings)
         self.application = application
 
@@ -36,6 +41,9 @@ class BaseTestCase(unittest.TestCase):
             self.application.remove_containers()
         except docker.APIError:
             pass
+
+
+
 
 #########################
 ##  INFORMATION TESTS  ##
@@ -70,6 +78,7 @@ class TestPullContainer(BaseTestCase):
 
 class TestCreateContainer(BaseTestCase):
     def runTest(self):
+        self.application.pull_image()
         create_results = self.application.create_containers()
 
         for result in create_results:
@@ -105,3 +114,28 @@ class TestStartContainer(BaseTestCase):
 
             # env
             self.assertIn('ENV_VAR1=One', details[u'Config'][u'Env'][0])
+
+
+class TestLoginToRegistry(BaseTestCase):
+
+    def runTest(self):
+        results = self.application.login_registry()
+
+        for result in results:
+            self.assertEqual('Login Succeeded', result[u'Status'])
+
+
+# class TestLoginToRegistryFail(BaseTestCase):
+#
+#     def setUp(self):
+#         super(TestLoginToRegistryFail, self).setUp()
+#         os.environ['REGISTRY_USER'] = "dcrtest"
+#         os.environ['REGISTRY_PASS'] = "wrongpwd"
+#         os.environ['REGISTRY_EMAIL'] = "thatcher+dcr@docker.com"
+#
+#
+#     def runTest(self):
+#         results = self.application.login_registry()
+#
+#         for result in results:
+#             self.assertEqual('Login Succeeded', result[u'Status'])

@@ -5,15 +5,16 @@ import bgtunnel
 from bgtunnel import SSHTunnelError
 import sys
 from requests.exceptions import ConnectionError
-
+import re
 
 class DockerDaemon:
     host = ""
     connection = {}
 
-    def __init__(self, host, ssh=True):
+    def __init__(self, host, registry_login, ssh=True):
         self.host_name, self.host_port = host.split('//')[1].split(":")
         self.host = host
+        self.registry_login = registry_login
 
         if ssh:
             forwarder = self.connect_channel(self.host_name, self.host_port)
@@ -33,6 +34,21 @@ class DockerDaemon:
             sys.exit(ex)
 
         return forwarder
+
+    def login(self):
+        """
+        Logs in to the registry
+        """
+        try:
+            username, password, email = self.registry_login.split(":")
+        except BaseException as ex:
+            sys.exit("error parsing registry_settings: {}".format(ex))
+
+        print "trying to login to the public index using user {}".format(username)
+
+        result = self.connection.login(username=username, password=password, email=email)
+        print result
+        return result
 
 
 class Hipache:
@@ -108,6 +124,8 @@ class Container:
         starts one of the containers of this application
         """
         print "starting container on {}".format(self.daemon.host_name)
+        if self.details is None:
+            return None
         if not self.details['State']['Running'] is True:
             result = self.daemon.connection.start(self.config['release_name'],
                                                   port_bindings=self.config['s_ports'],
@@ -153,17 +171,19 @@ class Application:
         self.settings = settings
         
         use_ssh = settings[cluster].get('use_ssh', True)
-        self.daemons = self.connect_daemons(self.settings[cluster]['daemons'], ssh=use_ssh)
+        registry_login = settings[cluster].get('registry_login', None)
+        self.daemons = self.connect_daemons(self.settings[cluster]['daemons'],
+                                            registry_login=registry_login,
+                                            ssh=use_ssh)
 
         release_name = self.config.get('release_name', None)
         if not release_name:
             print "error, release name not set, check your yml file"
 
-
-    def connect_daemons(self, daemon_list, ssh):
+    def connect_daemons(self, daemon_list, registry_login, ssh):
         daemons = []
         for host in daemon_list:
-            daemons.append(DockerDaemon(host, ssh))
+            daemons.append(DockerDaemon(host, registry_login=registry_login, ssh=ssh))
         return daemons
 
     def get_containers(self):
@@ -245,13 +265,20 @@ class Application:
             status.append(container.status)
         return status
 
-    def register(self):
+    def register(self, domain=None):
         """
         registers the container to a specified frontend
         """
 
         backend_port = self.config['c_ports'].keys()[0]
-        frontend = "{}.{}".format(self.name, self.settings['default']['base_domain'][0])
+        if not domain:
+            frontend = "{}.{}".format(self.name, self.settings['default']['base_domain'][0])
+        else:
+            match = re.match("^[0-9A-Za-z\.\-]*$", domain)
+            if not match:
+                sys.exit("given domain not in simple format")
+            frontend = domain
+
         front = "frontend:{}".format(frontend)
 
         for name, container in self.containers.items():
@@ -284,3 +311,14 @@ class Application:
         """
         unregisters the container from a specified frontend
         """
+
+    def login_registry(self):
+        """
+        Login to the public registry
+        """
+        status = []
+        for name, container in self.containers.items():
+            result = container.daemon.login()
+            status.append(result)
+        return status
+

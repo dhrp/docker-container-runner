@@ -1,5 +1,7 @@
 test_application:
   image: "busybox"
   command: ["sleep", "200"]
-  ports:  ["80"]
-  release_name: "test_application-0.1"
+  ports:  ["80", "81:81"]
+  volumes: ["testdir", "/tmp:testdir2"]
+  env: ["ENV_VAR1=One", "ENV_VAR1=Two"]
+  release_name: "test_application-0.2"

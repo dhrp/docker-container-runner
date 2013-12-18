@@ -12,7 +12,7 @@ setup(name='dcr',
       scripts=['dcr'],
       packages=['docker_container_runner'],
       install_requires=[
-          'docker-py==0.2.2',
+          'docker-py==0.2.3',
           'simplejson',
           'jsonpath_rw',
           'pyyaml',
@@ -20,7 +20,7 @@ setup(name='dcr',
           'bgtunnel'
       ],
       dependency_links=[
-          'git+git://github.com/dotcloud/docker-py.git@a60c1cd3a8cfe6bfb11f22a749461de0fd2835ee#egg=docker-py-0.2.2'
+          'https://github.com/dotcloud/docker-py/archive/0.2.3.tar.gz#egg=docker-py-0.2.3'
       ],
       zip_safe=False)
 

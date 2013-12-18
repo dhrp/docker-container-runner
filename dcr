@@ -6,7 +6,7 @@ from docker_container_runner import utils
 from docker_container_runner.manager import Application, DockerDaemon, Hipache
 
 
-settings = utils.read_settings('settings.yml')
+settings = utils.read_settings(sys.argv[3])
 
 
 def initialize():

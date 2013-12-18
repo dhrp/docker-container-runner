@@ -34,5 +34,5 @@ Setup your system (example)
 * Add a 'docker' user: ``sudo useradd -m -g docker docker`` with its default group named docker.
 * Start docker with -H tcp://localhost:4243 -H unix:///var/run/docker.sock
 
-Add "-D -H=unix:///var/run/docker.sock -H=tcp://127.0.0.1:4243" to /etc/default/docker
 
+# Add "-D -H=unix:///var/run/docker.sock -H=tcp://127.0.0.1:4243" to /etc/default/docker

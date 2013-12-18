@@ -53,7 +53,7 @@ def read_appconfig(filename):
                 container_port += "/tcp"
 
             c_ports[container_port] = {}
-            s_ports[container_port] = [{'HostIp': host_ip, 'HostPort': host_port}]
+            s_ports[container_port] = (host_ip, host_port)
 
         directives[key]['c_ports'] = c_ports
         directives[key]['s_ports'] = s_ports
@@ -79,7 +79,7 @@ def read_appconfig(filename):
     return directives
 
 
-def read_settings(filename):
+def read_settings(filename='settings.yml'):
     try:
         stream = open(filename)
     except IOError as err:

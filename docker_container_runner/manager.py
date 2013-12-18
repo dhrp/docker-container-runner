@@ -118,11 +118,26 @@ class Container:
 
     def stop(self):
         print "stopping container on {}".format(self.daemon.host_name)
+        if self.details is None:
+            return 1, "container does not exist"
         if not self.details['State']['Running'] is False:
             result = self.daemon.connection.stop(self.config['release_name'])
             return result
         else:
-            return None
+            return None  # container was not running in the first place
+
+    def remove(self):
+        """
+        starts one of the containers of this application
+        """
+        print "removing container on {}".format(self.daemon.host_name)
+        if self.details is None:
+            return 1, "container does not exist"
+        elif self.details['State']['Running'] is False:
+            result = self.daemon.connection.remove_container(self.config['release_name'])
+            return result
+        else:
+            return 1, "Failed to remove container"
 
 
 class Application:
@@ -184,24 +199,41 @@ class Application:
         """
         starts container on all hosts
         """
+        status = []
         for key, container in self.containers.items():
-            container.start()
-        return "success"
+            result = container.start()
+            status.append(result)
+        return status
 
     def stop_containers(self):
         """
         starts container on all hosts
         """
+        status = []
         for key, container in self.containers.items():
-            container.stop()
-        return "success"
+            result = container.stop()
+            status.append(result)
+        return status
 
-    def get_details(self, container):
+    def remove_containers(self):
+        """
+        starts container on all hosts
+        """
+        status = []
+        for key, container in self.containers.items():
+            result = container.remove()
+            status.append(result)
+        return status
+
+    def get_details(self):
         """
         get the container details
         """
-        container['details'] = container['daemon'].connection.inspect_container(self.config['release_name'])
-        return container
+        status = []
+        for key, container in self.containers.items():
+            container.details = container.daemon.connection.inspect_container(self.config['release_name'])
+            status.append(container.details)
+        return status
 
     def get_status(self):
         status = []

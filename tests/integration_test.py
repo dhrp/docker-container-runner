@@ -1,22 +1,10 @@
-import time
-import base64
-import io
-import os
-import signal
-import tempfile
+
 import unittest
-
 import docker
-import six
-
-import sys
 
 from docker_container_runner import utils
 from docker_container_runner.manager import Application, DockerDaemon, Hipache
 
-
-# FIXME: missing tests for
-# export; history; import_image; insert; port; push; tag
 
 
 class BaseTestCase(unittest.TestCase):
@@ -24,10 +12,6 @@ class BaseTestCase(unittest.TestCase):
     tmp_containers = []
 
     def setUp(self):
-        # self.client = docker.Client()
-        # self.client.pull('busybox')
-        # self.tmp_imgs = []
-        # self.tmp_containers = []
 
         directives = utils.read_appconfig("test_application.yml")
         name, config = directives.items()[0]
@@ -42,21 +26,16 @@ class BaseTestCase(unittest.TestCase):
         # get (unitialized) containers
         self.containers = application.get_containers()
 
+        # stop and remove container if it exists
+        self.application.stop_containers()
+        self.application.remove_containers()
+
     def tearDown(self):
-        """
-        for img in self.tmp_imgs:
-            try:
-                self.client.remove_image(img)
-            except docker.APIError:
-                pass
-        for container in self.tmp_containers:
-            try:
-                self.client.stop(container, timeout=1)
-                self.client.remove_container(container)
-            except docker.APIError:
-                pass
-        """
-        pass
+        try:
+            self.application.stop_containers()
+            self.application.remove_containers()
+        except docker.APIError:
+            pass
 
 #########################
 ##  INFORMATION TESTS  ##
@@ -67,7 +46,9 @@ class TestGetStatus(BaseTestCase):
     def runTest(self):
         res = self.application.get_status()
 
-        self.assertIn('doesnotexist', res)
+        acceptedValues = ['stopped', 'running', 'doesnotexist']
+        for status in res:
+            self.assertIn(status, acceptedValues)
 
 
 class TestPullContainer(BaseTestCase):
@@ -76,12 +57,51 @@ class TestPullContainer(BaseTestCase):
 
         self.assertEqual(None, results)
 
+#
+# class TestRemoveContainer(BaseTestCase):
+#     def runTest(self):
+#         results = self.application.remove_containers()
+#
+#         for result in results:
+#             print result
+#             # returns 0 if succesfull, 1 if it fails
+#             self.assertEqual(None, result)
+
 
 class TestCreateContainer(BaseTestCase):
     def runTest(self):
         create_results = self.application.create_containers()
 
         for result in create_results:
-            # returns 0 if succesfull, 1 if it fails
-            self.assertEqual(1, result[0])
+            print result
+            # returns None if succesfull, 1 if it fails
+            self.assertEqual(None, result)
 
+
+class TestStartContainer(BaseTestCase):
+    def runTest(self):
+
+        self.application.create_containers()
+        create_results = self.application.start_containers()
+        containers_details = self.application.get_details()
+
+        for result in create_results:
+            print result
+            # returns None if succesfull, 1 if it fails
+            self.assertEqual(None, result)
+
+        for details in containers_details:
+            print details
+
+            self.assertTrue(details[u'State'][u'Running'])
+
+            # ports
+            self.assertEqual(details[u'NetworkSettings'][u'Ports'][u'81/tcp'][0]['HostIp'], '0.0.0.0')
+            self.assertEqual(details[u'NetworkSettings'][u'Ports'][u'81/tcp'][0]['HostPort'], '81')
+
+            # volumes
+            self.assertIn('/var/lib/docker/', details[u'Volumes'][u'testdir'])
+            self.assertIn('/tmp', details[u'Volumes'][u'testdir2'])
+
+            # env
+            self.assertIn('ENV_VAR1=One', details[u'Config'][u'Env'][0])

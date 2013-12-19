@@ -1,6 +1,7 @@
 default:
   hipaches: ['blue3.koffiedik.net:6379']
-  daemons: ['http://blue3.koffiedik.net:4243']
+  daemons: ['blue3.koffiedik.net:4243']
+  daemon_username: "docker"
   base_domain: ['tea.project.io']
   use_ssh: True
   registry_login: "$REGISTRY_USER:$REGISTRY_PASS:$REGISTRY_EMAIL"

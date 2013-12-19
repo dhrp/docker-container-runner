@@ -106,9 +106,10 @@ def read_settings(filename='settings.yml'):
         print "no filename given, or incorrect file"
         return err
 
-    config = yaml.load(stream)
-    for key, value in config['default'].items():
-        if key == "registry_login":
-            config['default'][key] = try_replace_vars(value)
-    return config
+    settings = yaml.load(stream)
 
+    items = settings['default']
+    items['registry_login'] = try_replace_vars(items.get("registry_login", None))
+    items['daemon_username'] = try_replace_vars(items.get("daemon_username", None))
+
+    return settings

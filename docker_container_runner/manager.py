@@ -11,10 +11,16 @@ class DockerDaemon:
     host = ""
     connection = {}
 
-    def __init__(self, host, registry_login, ssh=True):
-        self.host_name, self.host_port = host.split('//')[1].split(":")
+    def __init__(self, host, registry_login, daemon_user, ssh=True):
+        try:
+            protocol, hostname = host.split('//')
+        except ValueError:
+            hostname = host
+
+        self.host_name, self.host_port = hostname.split(":")
         self.host = host
         self.registry_login = registry_login
+        self.daemon_user = daemon_user
 
         if ssh:
             forwarder = self.connect_channel(self.host_name, self.host_port)
@@ -22,12 +28,11 @@ class DockerDaemon:
         else:
             entrypoint = "http://{}:{}".format(self.host_name, self.host_port)    
 
-        print entrypoint
         self.connection = docker.Client(base_url=entrypoint, version="1.7")
 
     def connect_channel(self, host, port):
         try:
-            forwarder = bgtunnel.open(ssh_user="docker",
+            forwarder = bgtunnel.open(ssh_user=self.daemon_user,
                                       ssh_address=host,
                                       host_port=port)
         except SSHTunnelError as ex:
@@ -164,27 +169,35 @@ class Application:
     container = {}
     containers = {}
     results = []
+    daemons = []
+    hipaches = []
 
     def __init__(self, name, config, settings, cluster="default"):
         self.name = name
         self.config = config
         self.settings = settings
         
+        daemon_username = settings[cluster].get('daemon_username', None)
         use_ssh = settings[cluster].get('use_ssh', True)
         registry_login = settings[cluster].get('registry_login', None)
-        self.daemons = self.connect_daemons(self.settings[cluster]['daemons'],
-                                            registry_login=registry_login,
-                                            ssh=use_ssh)
+
+        # setup daemons
+        for host in self.settings[cluster]['daemons']:
+            self.daemons.append(DockerDaemon(host,
+                                             registry_login=registry_login,
+                                             daemon_user=daemon_username,
+                                             ssh=use_ssh))
+
+        # setup hipaches
+        for hipache_config in self.settings['default']['hipaches']:
+            hipache_host, hipache_port = hipache_config.split(':')
+            self.hipaches.append(Hipache(hipache_host, int(hipache_port)))
 
         release_name = self.config.get('release_name', None)
         if not release_name:
             print "error, release name not set, check your yml file"
 
-    def connect_daemons(self, daemon_list, registry_login, ssh):
-        daemons = []
-        for host in daemon_list:
-            daemons.append(DockerDaemon(host, registry_login=registry_login, ssh=ssh))
-        return daemons
+
 
     def get_containers(self):
         """
@@ -265,12 +278,8 @@ class Application:
             status.append(container.status)
         return status
 
-    def register(self, domain=None):
-        """
-        registers the container to a specified frontend
-        """
+    def get_frontend_uri(self, domain):
 
-        backend_port = self.config['c_ports'].keys()[0]
         if not domain:
             frontend = "{}.{}".format(self.name, self.settings['default']['base_domain'][0])
         else:
@@ -279,8 +288,12 @@ class Application:
                 sys.exit("given domain not in simple format")
             frontend = domain
 
-        front = "frontend:{}".format(frontend)
+        return frontend
 
+    def get_backend_uris(self):
+
+        results = []
+        backend_port = self.config['c_ports'].keys()[0]
         for name, container in self.containers.items():
             port = container.details[u'NetworkSettings'][u'Ports'][backend_port][0][u'HostPort']
             print port
@@ -289,28 +302,79 @@ class Application:
             backend_address = container.daemon.host_name
             backend = "http://{}:{}".format(backend_address, port)
 
-            self.write(front, backend)
+            results.append(backend)
+        return results
 
-    def write(self, front, backend):
+    def register(self, domain=None):
 
-        for hipache_config in self.settings['default']['hipaches']:
-            hipache_host, hipache_port = hipache_config.split(':')
-            hipache = Hipache(hipache_host, int(hipache_port))
+        backend_uris = self.get_backend_uris()
+        frontend = "frontend:{}".format(self.get_frontend_uri(domain))
+
+        for hipache in self.hipaches:
 
             # check length
-            length = hipache.connection.llen(front)
+            length = hipache.connection.llen(frontend)
             if not length > 0:
-                hipache.connection.rpush(front, self.name)
+                hipache.connection.rpush(frontend, self.name)
 
-            hipache.connection.rpush(front, backend)
+            for backend_uri in backend_uris :
+                # does it already have this backend registered?
+                stored_backends = hipache.connection.lrange(frontend, 0, -1)
+                if not backend_uri in stored_backends:
+                    hipache.connection.rpush(frontend, backend_uri)
 
-            hipache_config = hipache.connection.lrange(front, 0, -1)
+            hipache_config = hipache.connection.lrange(frontend, 0, -1)
             print hipache_config
 
-    def unregister(self, frontend):
+    def unregister(self, domain, hard=False):
         """
         unregisters the container from a specified frontend
         """
+
+        backend_uris = self.get_backend_uris()
+        frontend = "frontend:{}".format(self.get_frontend_uri(domain))
+        results = []
+
+
+        for hipache in self.hipaches:
+            # check length
+            length = hipache.connection.llen(frontend)
+
+            print "setting was", hipache.connection.lrange(frontend, 0, -1)
+
+            if not length > 0:
+                sys.exit("no backends in redis with this domain")
+            elif length == 1:
+                print hipache.connection.lrange(frontend, 0, -1)
+                sys.exit("domain known, but no backends present")
+            else:
+                if hard is False:
+                    for backend_uri in backend_uris:
+                        hipache.connection.lrem(frontend, 0, backend_uri)  # remove all occurrences of this backend
+                else:
+                    hipache.connection.ltrim(frontend, 0, 0)  # remove all backends from this domain
+
+            stored_backends = hipache.connection.lrange(frontend, 0, -1)
+            print "setting now", stored_backends
+            results.append(stored_backends)
+
+        return results
+
+    def unregister_all(self, domain):
+        self.unregister(domain, hard=True)
+
+    def switch_backends(self, domain):
+        self.unregister(domain, hard=True)
+        self.register(domain)
+
+    def redis_status(self, domain):
+        print "getting status for gateways"
+        result = []
+        frontend = "frontend:{}".format(self.get_frontend_uri(domain))
+        for hipache in self.hipaches:
+            result = "hipache {}".format(hipache.connection.lrange(frontend, 0, -1))
+            print result
+            return result
 
     def login_registry(self):
         """

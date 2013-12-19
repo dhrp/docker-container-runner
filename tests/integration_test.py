@@ -18,6 +18,8 @@ class BaseTestCase(unittest.TestCase):
         os.environ['REGISTRY_PASS'] = "1secretpassword"
         os.environ['REGISTRY_EMAIL'] = "thatcher+dcr@docker.com"
 
+        self.domain = "dcr-test.blue3.koffiedik.net"
+
         directives = utils.read_appconfig("test_application.yml")
         name, config = directives.items()[0]
 
@@ -125,17 +127,29 @@ class TestLoginToRegistry(BaseTestCase):
             self.assertEqual('Login Succeeded', result[u'Status'])
 
 
-# class TestLoginToRegistryFail(BaseTestCase):
-#
-#     def setUp(self):
-#         super(TestLoginToRegistryFail, self).setUp()
-#         os.environ['REGISTRY_USER'] = "dcrtest"
-#         os.environ['REGISTRY_PASS'] = "wrongpwd"
-#         os.environ['REGISTRY_EMAIL'] = "thatcher+dcr@docker.com"
-#
-#
-#     def runTest(self):
-#         results = self.application.login_registry()
-#
-#         for result in results:
-#             self.assertEqual('Login Succeeded', result[u'Status'])
+class TestRegisterContainer(BaseTestCase):
+
+    def runTest(self):
+        self.application.create_containers()
+        self.application.start_containers()
+        result = self.application.register(self.domain)
+
+        print result
+
+
+class TestUnregisterContainer(BaseTestCase):
+
+    def runTest(self):
+        self.application.create_containers()
+        self.application.start_containers()
+        self.application.register(self.domain)
+        result = self.application.unregister_all(self.domain)
+
+        print result
+
+
+class TestRedisStatus(BaseTestCase):
+    def runTest(self):
+        result = self.application.redis_status(self.domain)
+
+        print result

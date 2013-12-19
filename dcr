@@ -60,7 +60,29 @@ def print_usage():
     """
     usage:
 
-    dcr.py [status|create|start|pull] [configfile.yml]
+    dcr.py APP_CONFIGFILE [command]
+
+    each command will be executed on each host
+
+    options:
+
+    Managing the containers
+    -----------------------
+
+    status:         show current status of the containers
+    create:         create container
+    remove:         remove container
+    start:          start container
+    stop:           stop container
+    pull:           pull the container from the registry, will login automatically
+    login:          login to the registry (test)
+
+    Hipache things
+    --------------
+    register:       register the container on all known hipache gateways
+    unregister:     remove this specific container from all existing gateways (container must be running)
+    unregister_all: remove all containers from this domain on all existing gateways
+    switch:         remove existing gateways from back-end and register the new ones
     """
 
 try:
@@ -72,12 +94,21 @@ except:
 directives = utils.read_appconfig(sys.argv[1])
 
 
-cmd = sys.argv[2]
+try:
+    cmd = sys.argv[2]
+except:
+    print_usage()
+    sys.exit("no command given")
 
 if cmd == "status":
     initialize()
 elif cmd == "create":
     create()
+
+elif cmd == "remove":
+    application = initialize()
+    application.remove_containers()
+
 elif cmd == "start":
     start()
 elif cmd == "stop":
@@ -97,13 +128,37 @@ elif cmd == "register":
     application = initialize()
     application.register(domain)
 
+elif cmd == "unregister":
+    try:
+        domain = sys.argv[3]
+    except BaseException as ex:
+        sys.exit("please provide a domain name to register")
+
+    application = initialize()
+    application.unregister(domain)
+
+elif cmd == "unregister_all":
+    try:
+        domain = sys.argv[3]
+    except BaseException as ex:
+        sys.exit("please provide a domain name to register")
+
+    application = initialize()
+    application.unregister_all(domain)
+
+elif cmd == "switch":
+    try:
+        domain = sys.argv[3]
+    except BaseException as ex:
+        sys.exit("please provide a domain name to register")
+
+    application = initialize()
+    application.switch_backends(domain)
+
 elif cmd == "login":
     application = initialize()
     application.login_registry()
 
-elif cmd == "remove":
-    application = initialize()
-    application.remove_containers()
 
 else:
     print_usage()

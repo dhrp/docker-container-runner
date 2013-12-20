@@ -13,17 +13,23 @@ class BaseTestCase(unittest.TestCase):
     tmp_containers = []
 
     def setUp(self):
+
+        print """
+        Setting up
+        """
+
         # os.env['REGISTRY_PASS'] = err, "1secretpassword"
         os.environ['REGISTRY_USER'] = "dcrtest"
         os.environ['REGISTRY_PASS'] = "1secretpassword"
         os.environ['REGISTRY_EMAIL'] = "thatcher+dcr@docker.com"
+        os.environ['ENV_VAR1'] = "One"
 
         self.domain = "dcr-test.blue3.koffiedik.net"
 
         directives = utils.read_appconfig("test_application.yml")
-        name, config = directives.items()[0]
+        release_name = directives['test_application']['release_name']
 
-        release_name = config['release_name']
+        name, config = directives.items()[0]
 
         # Create the application
         settings = utils.read_settings('settings.yml')
@@ -37,14 +43,24 @@ class BaseTestCase(unittest.TestCase):
         self.application.stop_containers()
         self.application.remove_containers()
 
+        print """
+        Setting up done
+        """
+
     def tearDown(self):
+        print """
+        tearing down
+        """
+
         try:
             self.application.stop_containers()
             self.application.remove_containers()
         except docker.APIError:
             pass
 
-
+        print """
+        tearing down complete
+        """
 
 
 #########################
@@ -80,7 +96,6 @@ class TestPullContainer(BaseTestCase):
 
 class TestCreateContainer(BaseTestCase):
     def runTest(self):
-        self.application.pull_image()
         create_results = self.application.create_containers()
 
         for result in create_results:
@@ -118,6 +133,8 @@ class TestStartContainer(BaseTestCase):
             self.assertIn('ENV_VAR1=One', details[u'Config'][u'Env'][0])
 
 
+
+
 class TestLoginToRegistry(BaseTestCase):
 
     def runTest(self):
@@ -153,3 +170,38 @@ class TestRedisStatus(BaseTestCase):
         result = self.application.redis_status(self.domain)
 
         print result
+
+class TestStartLinkedContainer(BaseTestCase):
+    def runTest(self):
+        directives = utils.read_appconfig("child_container.yml")
+
+        name, config = directives.items()[0]
+
+        # Create the application
+        settings = utils.read_settings('settings.yml')
+        release_name = directives['child_container']['release_name']
+
+        child_container = Application(release_name, config, settings)
+
+        # create the 'parent' container
+        self.application.create_containers()
+        self.application.start_containers()
+        self.application.get_status()
+
+        # clean
+        child_container.stop_containers()
+        child_container.remove_containers()
+
+        # create child
+        child_container.create_containers()
+        child_container.start_containers()
+        self.application.get_status()
+
+
+        # # clean again
+        # child_container.stop_containers()
+        # child_container.remove_containers()
+
+
+        print child_container
+

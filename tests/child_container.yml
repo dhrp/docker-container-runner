@@ -1,0 +1,6 @@
+child_container:
+  image: "busybox"
+  command: ["sleep", "200"]
+  ports:  ["80"]
+  release_name: "child-container"
+  links: ["test_application:parent"]

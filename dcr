@@ -141,7 +141,7 @@ elif cmd == "unregister_all":
     try:
         domain = sys.argv[3]
     except BaseException as ex:
-        sys.exit("please provide a domain name to register")
+        sys.exit("please provide a domain name to unregister everything from")
 
     application = initialize()
     application.unregister_all(domain)

@@ -1,6 +1,8 @@
 import yaml
 import sys
 import os
+import bgtunnel
+from bgtunnel import SSHTunnelError
 
 def read_appconfig(filename):
 
@@ -22,12 +24,27 @@ def read_appconfig(filename):
         directives[key]['image'] = values.get("image", None)
         directives[key]['command'] = values.get("command", None)
         directives[key]['hostname'] = values.get("hostname", None)
-        directives[key]['dep_env'] = values.get("dep_env", None)
-        directives[key]['env'] = values.get("env", None)
         directives[key]['release_name'] = values.get("release_name", None)
+
+        items = values.get("links", None)
+        links = {}
+        for item in items or []:
+            name, alias = item.split(":")
+            links[name] = alias
+
+        directives[key]['links'] = links
 
         # more complex ones
         directives[key]['registry_login'] = try_replace_vars(values.get("registry_login", None))
+
+        envs = values.get("env", None)
+        if not envs is None:
+            for i, var in enumerate(envs):
+                if var.startswith("$"):
+                    env_key = var[1:]
+                    envs[i] = "{}={}".format(env_key, try_replace_vars(var))
+
+        directives[key]['env'] = envs
 
         # PORTS
         ports = values.get("ports", None)
@@ -81,21 +98,21 @@ def read_appconfig(filename):
     return directives
 
 
-def try_replace_vars(string):
-    if string is None:
+def try_replace_vars(value):
+    if value is None:
         return None
 
-    parts = string.split(":")
+    parts = value.split(":")
     arr = []
     for part in parts:
         if part.startswith("$"):
             try:
                 arr.append(os.environ[part[1:]])
             except KeyError as err:
-                error = err.message, " key not set in (virtual) environment"
-                sys.exit(error)
+                print "WARNING! {} key not set in (virtual) environment".format(err)
         else:
             arr.append(part)
+
     return ":".join(arr)
 
 
@@ -110,6 +127,18 @@ def read_settings(filename='settings.yml'):
 
     items = settings['default']
     items['registry_login'] = try_replace_vars(items.get("registry_login", None))
-    items['daemon_username'] = try_replace_vars(items.get("daemon_username", None))
+    items['ssh_user'] = try_replace_vars(items.get("ssh_user", None))
 
     return settings
+
+
+def create_tunnel(host, port, ssh_user):
+    try:
+        tunnel = bgtunnel.open(ssh_user=ssh_user,
+                               ssh_address=host,
+                               host_port=port)
+    except SSHTunnelError as ex:
+        sys.exit(ex)
+
+    return tunnel
+

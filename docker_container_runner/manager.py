@@ -1,17 +1,18 @@
 import docker
 from docker import APIError
 import redis
-import bgtunnel
-from bgtunnel import SSHTunnelError
+
 import sys
 from requests.exceptions import ConnectionError
 import re
+from utils import create_tunnel
+
 
 class DockerDaemon:
     host = ""
     connection = {}
 
-    def __init__(self, host, registry_login, daemon_user, ssh=True):
+    def __init__(self, host, registry_login, ssh_user, ssh=True):
         try:
             protocol, hostname = host.split('//')
         except ValueError:
@@ -20,25 +21,15 @@ class DockerDaemon:
         self.host_name, self.host_port = hostname.split(":")
         self.host = host
         self.registry_login = registry_login
-        self.daemon_user = daemon_user
+        self.ssh_user = ssh_user
 
         if ssh:
-            forwarder = self.connect_channel(self.host_name, self.host_port)
+            forwarder = create_tunnel(self.host_name, self.host_port, ssh_user)
             entrypoint = "http://{}".format(forwarder.bind_string)
         else:
             entrypoint = "http://{}:{}".format(self.host_name, self.host_port)    
 
         self.connection = docker.Client(base_url=entrypoint, version="1.7")
-
-    def connect_channel(self, host, port):
-        try:
-            forwarder = bgtunnel.open(ssh_user=self.daemon_user,
-                                      ssh_address=host,
-                                      host_port=port)
-        except SSHTunnelError as ex:
-            sys.exit(ex)
-
-        return forwarder
 
     def login(self):
         """
@@ -57,8 +48,16 @@ class DockerDaemon:
 
 
 class Hipache:
-    def __init__(self, host, port):
-        self.connection = redis.StrictRedis(host=host, port=port, db=0)
+    def __init__(self, host, redis_port, ssh_user, ssh=True):
+        """
+        Setup the hipache connection
+        """
+
+        if ssh:
+            forwarder = create_tunnel(host=host, port=redis_port, ssh_user=ssh_user)
+            self.connection = redis.StrictRedis(host=forwarder.bind_address, port=forwarder.bind_port, db=0)
+        else:
+            self.connection = redis.StrictRedis(host=host, port=redis_port, db=0)
 
 
 class Container:
@@ -134,7 +133,8 @@ class Container:
         if not self.details['State']['Running'] is True:
             result = self.daemon.connection.start(self.config['release_name'],
                                                   port_bindings=self.config['s_ports'],
-                                                  binds=self.config['binds'])
+                                                  binds=self.config['binds'],
+                                                  links=self.config['links'])
             return result
         else:
             return None
@@ -165,19 +165,23 @@ class Container:
 
 class Application:
 
-    config = {}
-    container = {}
-    containers = {}
-    results = []
-    daemons = []
-    hipaches = []
+    # config = {}
+    # container = {}
+    # containers = {}
+    # results = []
+    # daemons = []
+    # hipaches = []
 
     def __init__(self, name, config, settings, cluster="default"):
         self.name = name
         self.config = config
         self.settings = settings
+        self.containers = {}
+        self.daemons = []
+        self.hipaches = []
+
         
-        daemon_username = settings[cluster].get('daemon_username', None)
+        ssh_user = settings[cluster].get('ssh_user', None)
         use_ssh = settings[cluster].get('use_ssh', True)
         registry_login = settings[cluster].get('registry_login', None)
 
@@ -185,13 +189,15 @@ class Application:
         for host in self.settings[cluster]['daemons']:
             self.daemons.append(DockerDaemon(host,
                                              registry_login=registry_login,
-                                             daemon_user=daemon_username,
+                                             ssh_user=ssh_user,
                                              ssh=use_ssh))
 
+    def connect_gateways(self, cluster="default"):
         # setup hipaches
+        ssh_user = self.settings[cluster].get('ssh_user', None)
         for hipache_config in self.settings['default']['hipaches']:
             hipache_host, hipache_port = hipache_config.split(':')
-            self.hipaches.append(Hipache(hipache_host, int(hipache_port)))
+            self.hipaches.append(Hipache(hipache_host, int(hipache_port), ssh_user=ssh_user))
 
         release_name = self.config.get('release_name', None)
         if not release_name:
@@ -215,7 +221,6 @@ class Application:
     def create_containers(self):
         """
         creates the container specified in the configuration
-        :param daemon: the daemon to connect to
         """
         status = []
         for key, container in self.containers.items():
@@ -306,6 +311,8 @@ class Application:
         return results
 
     def register(self, domain=None):
+
+        self.connect_gateways()
 
         backend_uris = self.get_backend_uris()
         frontend = "frontend:{}".format(self.get_frontend_uri(domain))

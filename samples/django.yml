@@ -1,0 +1,5 @@
+django:
+  image: "dockerfiles/django-uwsgi-nginx"
+  command: ["supervisord", "-n"]
+  ports: ["80"]
+  release_name: "django_container"

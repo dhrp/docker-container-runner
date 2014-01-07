@@ -1,6 +1,9 @@
 airfield:
   image: "dhrp/airfield"
   command: ["node", "/airfield/airfield.js"]
-  env: ["REDIS_HOST=blue3.koffiedik.net", "REDIS_PORT=6379"]
+  env:
+    - "AIRFIELD_USER=admin"
+    - "AIRFIELD_PASS=password"
+  links: ["hipache-0.1:redis"]
   ports: ['3000:3000']
   release_name: "airfield-0.1"

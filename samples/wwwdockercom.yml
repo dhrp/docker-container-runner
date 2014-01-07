@@ -2,5 +2,5 @@ wwwdockercom:
   image: "blue3.koffiedik.net:49153/dhrp/www.docker.com"
   ports: ['8000']
   command: ["python", "/website/manage.py", "runserver", "0.0.0.0:8000"]
-  relase_name: "wwwdockercom-0.0.1"
+  release_name: "wwwdockercom-0.0.1"
 

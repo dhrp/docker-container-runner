@@ -5,7 +5,7 @@ import os
 
 from docker_container_runner import utils
 from docker_container_runner.manager import Application, DockerDaemon, Hipache
-
+from docker import APIError
 
 
 class BaseTestCase(unittest.TestCase):
@@ -18,7 +18,6 @@ class BaseTestCase(unittest.TestCase):
         Setting up
         """
 
-        # os.env['REGISTRY_PASS'] = err, "1secretpassword"
         os.environ['REGISTRY_USER'] = "dcrtest"
         os.environ['REGISTRY_PASS'] = "1secretpassword"
         os.environ['REGISTRY_EMAIL'] = "thatcher+dcr@docker.com"
@@ -80,8 +79,9 @@ class TestGetStatus(BaseTestCase):
 class TestPullContainer(BaseTestCase):
     def runTest(self):
         results = self.application.pull_image()
-
-        self.assertEqual(None, results)
+        for result in results:
+            self.assertNotIn("Authentication is required", result)
+            self.assertNotIsInstance(result, APIError)
 
 #
 # class TestRemoveContainer(BaseTestCase):
@@ -133,8 +133,6 @@ class TestStartContainer(BaseTestCase):
             self.assertIn('ENV_VAR1=One', details[u'Config'][u'Env'][0])
 
 
-
-
 class TestLoginToRegistry(BaseTestCase):
 
     def runTest(self):
@@ -160,7 +158,7 @@ class TestUnregisterContainer(BaseTestCase):
         self.application.create_containers()
         self.application.start_containers()
         self.application.register(self.domain)
-        result = self.application.unregister_all(self.domain)
+        result = self.application.unregister(self.domain)
 
         print result
 
@@ -171,17 +169,22 @@ class TestRedisStatus(BaseTestCase):
 
         print result
 
+
 class TestStartLinkedContainer(BaseTestCase):
     def runTest(self):
-        directives = utils.read_appconfig("child_container.yml")
+        # Create the application
+        settings = utils.read_settings('settings.yml')
+
+        directives = utils.read_appconfig("child_application.yml")
 
         name, config = directives.items()[0]
 
-        # Create the application
-        settings = utils.read_settings('settings.yml')
-        release_name = directives['child_container']['release_name']
+        release_name = config['release_name']
+        child_application = Application(release_name, config, settings)
+        child_application.containers = child_application.get_containers()
 
-        child_container = Application(release_name, config, settings)
+        # check if we have instantiated container objects
+        self.assertNotEquals(len(child_application.containers), 0)
 
         # create the 'parent' container
         self.application.create_containers()
@@ -189,19 +192,24 @@ class TestStartLinkedContainer(BaseTestCase):
         self.application.get_status()
 
         # clean
-        child_container.stop_containers()
-        child_container.remove_containers()
+        child_application.stop_containers()
+        child_application.remove_containers()
 
         # create child
-        child_container.create_containers()
-        child_container.start_containers()
+        child_application.pull_image()
+        child_application.create_containers()
+        child_application.start_containers()
+        child_application_details = child_application.get_details()
+        print child_application_details
+
+        for detail in child_application_details:
+            self.assertEqual(detail[u'State'][u'Running'], True)
+
         self.application.get_status()
 
+        # clean again
+        child_application.stop_containers()
+        child_application.remove_containers()
 
-        # # clean again
-        # child_container.stop_containers()
-        # child_container.remove_containers()
-
-
-        print child_container
+        print child_application
 

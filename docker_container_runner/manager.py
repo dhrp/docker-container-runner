@@ -43,6 +43,7 @@ class DockerDaemon:
         print "trying to login to the public index using user {}".format(username)
 
         result = self.connection.login(username=username, password=password, email=email)
+
         print result
         return result
 
@@ -98,12 +99,13 @@ class Container:
         print "trying to pull {} on {}".format(repository, self.daemon.host_name)
 
         try:
-            results = self.daemon.connection.pull(repository, tag=None)
-            print results
-            return results
+            self.daemon.login()
+            result = self.daemon.connection.pull(repository, tag=None)
+            print result
+            return result
         except APIError as ex:
             print ex
-            return None
+            return ex
 
     def get_image(self):
         return self.daemon.connection.images(name=self.config['image'])
@@ -180,7 +182,6 @@ class Application:
         self.daemons = []
         self.hipaches = []
 
-        
         ssh_user = settings[cluster].get('ssh_user', None)
         use_ssh = settings[cluster].get('use_ssh', True)
         registry_login = settings[cluster].get('registry_login', None)
@@ -230,8 +231,14 @@ class Application:
         return status
 
     def pull_image(self):
+        """
+        pulls image on all hosts
+        """
+        status = []
         for key, container in self.containers.items():
-            container.pull()
+            result = container.pull()
+            status.append(result)
+        return status
 
     def start_containers(self):
         """
@@ -300,7 +307,12 @@ class Application:
         results = []
         backend_port = self.config['c_ports'].keys()[0]
         for name, container in self.containers.items():
-            port = container.details[u'NetworkSettings'][u'Ports'][backend_port][0][u'HostPort']
+            try:
+                port = container.details[u'NetworkSettings'][u'Ports'][backend_port][0][u'HostPort']
+            except TypeError as err:
+                port = None
+                print "Warning! container not running"
+                return None
             print port
 
             # backend_address = container.details['host'].split('//')[1].split(":")[0]
@@ -324,11 +336,14 @@ class Application:
             if not length > 0:
                 hipache.connection.rpush(frontend, self.name)
 
-            for backend_uri in backend_uris :
-                # does it already have this backend registered?
-                stored_backends = hipache.connection.lrange(frontend, 0, -1)
-                if not backend_uri in stored_backends:
-                    hipache.connection.rpush(frontend, backend_uri)
+            for backend_uri in backend_uris or []:
+                # when the container is not running the backend_uri will be None
+                if backend_uri:
+                    # does it already have this backend registered?
+                    stored_backends = hipache.connection.lrange(frontend, 0, -1)
+                    if not backend_uri in stored_backends:
+                        hipache.connection.rpush(frontend, backend_uri)
+
 
             hipache_config = hipache.connection.lrange(frontend, 0, -1)
             print hipache_config
@@ -338,10 +353,11 @@ class Application:
         unregisters the container from a specified frontend
         """
 
+        self.connect_gateways()
+
         backend_uris = self.get_backend_uris()
         frontend = "frontend:{}".format(self.get_frontend_uri(domain))
         results = []
-
 
         for hipache in self.hipaches:
             # check length

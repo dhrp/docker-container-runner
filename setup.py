@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='dcr',
-      version='0.1.5',
+      version='0.1.6',
       description='Docker Container Runner - start Docker Containers from YML',
       url='http://github.com/dhrp/docker-runner',
       author='Thatcher Peskens',

@@ -9,9 +9,6 @@ from docker_container_runner.manager import Application, DockerDaemon, Hipache
 # try:
 #     settingsfile = sys.argv[3]
 # except:
-settingsfile = "settings.yml"
-
-settings = utils.read_settings(settingsfile)
 
 
 def initialize():
@@ -23,6 +20,9 @@ def initialize():
 
     name, config = directives.items()[0]
     release_name = config['release_name']
+
+    settingsfile = "settings.yml"
+    settings = utils.read_settings(settingsfile)
 
     # Create the application
     application = Application(release_name, config, settings)

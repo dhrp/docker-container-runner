@@ -44,17 +44,17 @@ class DockerDaemon:
 
         result = self.connection.login(username=username, password=password, email=email)
 
-        print result
+        # print result
         return result
 
 
 class Hipache:
-    def __init__(self, host, redis_port, ssh_user, ssh=True):
+    def __init__(self, host, redis_port, ssh_user, use_ssh=True):
         """
         Setup the hipache connection
         """
 
-        if ssh:
+        if use_ssh:
             forwarder = create_tunnel(host=host, port=redis_port, ssh_user=ssh_user)
             self.connection = redis.StrictRedis(host=forwarder.bind_address, port=forwarder.bind_port, db=0)
         else:
@@ -96,7 +96,7 @@ class Container:
 
     def pull(self):
         repository = self.config['image']
-        print "trying to pull {} on {}".format(repository, self.daemon.host_name)
+        print "starting to pull {} on {}".format(repository, self.daemon.host_name)
 
         try:
             self.daemon.login()
@@ -106,6 +106,8 @@ class Container:
         except APIError as ex:
             print ex
             return ex
+
+        print "pull complete"
 
     def get_image(self):
         return self.daemon.connection.images(name=self.config['image'])
@@ -195,16 +197,17 @@ class Application:
 
     def connect_gateways(self, cluster="default"):
         # setup hipaches
+
+        use_ssh = self.settings[cluster]['use_ssh']
+
         ssh_user = self.settings[cluster].get('ssh_user', None)
         for hipache_config in self.settings['default']['hipaches']:
             hipache_host, hipache_port = hipache_config.split(':')
-            self.hipaches.append(Hipache(hipache_host, int(hipache_port), ssh_user=ssh_user))
+            self.hipaches.append(Hipache(hipache_host, int(hipache_port), ssh_user=ssh_user, use_ssh=use_ssh))
 
         release_name = self.config.get('release_name', None)
         if not release_name:
             print "error, release name not set, check your yml file"
-
-
 
     def get_containers(self):
         """
@@ -322,7 +325,7 @@ class Application:
             results.append(backend)
         return results
 
-    def register(self, domain=None):
+    def register(self, domain=None, cluster='default'):
 
         self.connect_gateways()
 

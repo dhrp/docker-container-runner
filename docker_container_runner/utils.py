@@ -25,6 +25,7 @@ def read_appconfig(filename):
         directives[key]['command'] = values.get("command", None)
         directives[key]['hostname'] = values.get("hostname", None)
         directives[key]['release_name'] = values.get("release_name", None)
+        directives[key]['register'] = values.get("register", None)
 
         items = values.get("links", None)
         links = {}

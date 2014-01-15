@@ -308,7 +308,7 @@ class Application:
     def get_backend_uris(self):
 
         results = []
-        backend_port = self.config['c_ports'].keys()[0]
+        backend_port = "{}/tcp".format(self.config['register'])
         for name, container in self.containers.items():
             try:
                 port = container.details[u'NetworkSettings'][u'Ports'][backend_port][0][u'HostPort']

@@ -1,7 +1,8 @@
 test_application:
   image: "dcrtest/private"
   command: ["sleep", "200"]
-  ports:  ["80", "81:81"]
+  ports:  ["80", "22", "81:81"]
+  register: "80"
   volumes: ["testdir", "/tmp:testdir2"]
   env:
     - "$ENV_VAR1"

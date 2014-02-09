@@ -19,11 +19,11 @@ example config:
 
 
 ```
-annickspoelstra:
+ghostblog:
   image: "tea/ghostblog"
   command: ["supervisord","-n"]
   ports: ["6002:22", "127.0.0.1:6001:2368/tcp", "80"]
-  volumes: ['/var/sites/annickspoelstra.nl/data/:/data/', '/var/sites/annickspoelstra.nl/files/:/site/']
+  volumes: ['/var/sites/ghostblog/data/:/data/', '/var/sites/ghostblog/files/:/site/']
   env: ["REDIS_HOST=blue1.koffiedik.net", "REDIS_PORT=6379"]
 ```
 
@@ -35,7 +35,7 @@ Setup your system (example)
 * Start docker with -H tcp://localhost:4243 -H unix:///var/run/docker.sock
 
 
-`Add "-D -H=unix:///var/run/docker.sock -H=tcp://127.0.0.1:4243" to /etc/default/docker`
+`Add DOCKER_OPTS="-D -H=unix:///var/run/docker.sock -H=tcp://127.0.0.1:4243" to /etc/default/docker`
 
 Setting up your local environment to login
 

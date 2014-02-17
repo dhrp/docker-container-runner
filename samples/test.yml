@@ -1,0 +1,9 @@
+test:
+  image: "busybox"
+  command: ["sleep", "100"]
+  env:
+    - "AIRFIELD_USER=admin"
+    - "AIRFIELD_PASS=password"
+#  links: ["hipache-0.1:redis"]
+  ports: ['100']
+  release_name: "test1"

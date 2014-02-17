@@ -4,6 +4,7 @@ __author__ = 'thatcher'
 import sys
 from docker_container_runner import utils
 from docker_container_runner.manager import Application, DockerDaemon, Hipache
+import pkg_resources  # part of setuptools
 
 
 # try:
@@ -31,7 +32,7 @@ def initialize():
     containers = application.get_containers()
 
     for name, container in containers.items():
-        print container.status
+        status = container.status
 
     return application
 
@@ -66,6 +67,8 @@ def print_usage():
 
     options:
 
+    version:        show current dcr version
+
     Managing the containers
     -----------------------
 
@@ -88,8 +91,13 @@ def print_usage():
 try:
     stream = open(sys.argv[1])
 except:
-    print_usage()
-    sys.exit(1)
+    try:
+        if sys.argv[1] == "version":
+            print "dcr version: {}".format(pkg_resources.require("dcr")[0].version)
+            sys.exit(0)
+    except IndexError:
+        print_usage()
+        sys.exit(1)
 
 directives = utils.read_appconfig(sys.argv[1])
 

@@ -35,16 +35,21 @@ class DockerDaemon:
         """
         Logs in to the registry
         """
+        if not self.registry_login:
+            # sys.exit("Cannot login, no registry settings set")
+            print "login:  No registry settings found, trying to connect anonymously"
+            return
+
         try:
             username, password, email = self.registry_login.split(":")
         except BaseException as ex:
-            sys.exit("error parsing registry_settings: {}".format(ex))
+            sys.exit("error parsing registry_settings, were they set in your environment?, {}".format(ex))
 
-        print "trying to login to the public index using user {}".format(username)
+        print "login:  trying to login to the public index using user {}".format(username)
 
         result = self.connection.login(username=username, password=password, email=email)
 
-        # print result
+        print "login:  {}".format(result[u'Status'])
         return result
 
 
@@ -76,7 +81,6 @@ class Container:
             details = self.daemon.connection.inspect_container(self.config['release_name'])
             return details
         except APIError as ex:
-            print ex
             return None
         except ConnectionError as ex:
             print "Failed to connect to daemon ", ex
@@ -87,33 +91,39 @@ class Container:
         try:
             running = self.details['State']['Running']
             if running:
+                print "status: Status of '{}' on host '{}' is running \n        with ports: {}".format(
+                    self.config['release_name'],
+                    self.daemon.host_name,
+                    self.details[u'NetworkSettings']['Ports']
+                )
                 status = "running"
             else:
+                print "status: container {} on host {} is stopped".format(self.config['release_name'], self.daemon.host_name)
                 status = "stopped"
         except Exception:
             status = "doesnotexist"
+            print "status: container {} on host {} does not exist".format(self.config['release_name'], self.daemon.host_name)
+
         return status
 
     def pull(self):
         repository = self.config['image']
-        print "starting to pull {} on {}".format(repository, self.daemon.host_name)
+        print "pull:   Starting to pull {} on {}".format(repository, self.daemon.host_name)
 
         try:
-            self.daemon.login()
             result = self.daemon.connection.pull(repository, tag=None)
-            print result
+            print "pull:   {}".format(result)
+            print "pull:   Pull complete"
             return result
         except APIError as ex:
             print ex
             return ex
 
-        print "pull complete"
-
     def get_image(self):
         return self.daemon.connection.images(name=self.config['image'])
 
     def create(self):
-        print "creating container on {}".format(self.daemon.host_name)
+        print "create: creating container on {}".format(self.daemon.host_name)
         try:
             self.daemon.connection.create_container(self.config['image'],
                                                 self.config['command'],
@@ -123,7 +133,7 @@ class Container:
                                                 detach=True,
                                                 name=self.config['release_name'])
         except APIError as ex:
-            print "failed to create container: ", ex
+            print "create: failed to create container: ", ex
             return 1, "Failed to create container", ex
 
 
@@ -131,20 +141,22 @@ class Container:
         """
         starts one of the containers of this application
         """
-        print "starting container on {}".format(self.daemon.host_name)
+        print "start:  starting container on {}".format(self.daemon.host_name)
+
         if self.details is None:
             return None
-        if not self.details['State']['Running'] is True:
-            result = self.daemon.connection.start(self.config['release_name'],
-                                                  port_bindings=self.config['s_ports'],
-                                                  binds=self.config['binds'],
-                                                  links=self.config['links'])
-            return result
         else:
-            return None
+            if not self.details['State']['Running'] is True:
+                result = self.daemon.connection.start(self.config['release_name'],
+                                                      port_bindings=self.config['s_ports'],
+                                                      binds=self.config['binds'],
+                                                      links=self.config['links'])
+                return result
+            else:
+                return None
 
     def stop(self):
-        print "stopping container on {}".format(self.daemon.host_name)
+        print "stop:   stopping container on {}".format(self.daemon.host_name)
         if self.details is None:
             return 1, "container does not exist"
         if not self.details['State']['Running'] is False:
@@ -157,7 +169,7 @@ class Container:
         """
         starts one of the containers of this application
         """
-        print "removing container on {}".format(self.daemon.host_name)
+        print "remove: removing container on {}".format(self.daemon.host_name)
         if self.details is None:
             return 1, "container does not exist"
         elif self.details['State']['Running'] is False:
@@ -286,10 +298,6 @@ class Application:
     def get_status(self):
         status = []
         for key, container in self.containers.items():
-            print "container {release_name} on host {daemon}, Running={status}" \
-                .format(release_name=container.config['release_name'],
-                        daemon=container.daemon.host_name,
-                        status=container.status)
             status.append(container.status)
         return status
 
@@ -366,13 +374,13 @@ class Application:
             # check length
             length = hipache.connection.llen(frontend)
 
-            print "setting was", hipache.connection.lrange(frontend, 0, -1)
+            print "unregister: setting was", hipache.connection.lrange(frontend, 0, -1)
 
             if not length > 0:
-                sys.exit("no backends in redis with this domain")
+                sys.exit("unregister: no backends in redis with this domain")
             elif length == 1:
                 print hipache.connection.lrange(frontend, 0, -1)
-                sys.exit("domain known, but no backends present")
+                sys.exit("unregister: domain known, but no backends present")
             else:
                 if hard is False:
                     for backend_uri in backend_uris:
@@ -381,7 +389,7 @@ class Application:
                     hipache.connection.ltrim(frontend, 0, 0)  # remove all backends from this domain
 
             stored_backends = hipache.connection.lrange(frontend, 0, -1)
-            print "setting now", stored_backends
+            print "unregister: setting now", stored_backends
             results.append(stored_backends)
 
         return results
@@ -390,7 +398,10 @@ class Application:
         self.unregister(domain, hard=True)
 
     def switch_backends(self, domain):
+        print "switch:    unregistering all"
         self.unregister(domain, hard=True)
+
+        print "switch:    registering {}".format(domain)
         self.register(domain)
 
     def redis_status(self, domain):

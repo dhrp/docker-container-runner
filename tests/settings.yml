@@ -1,7 +1,6 @@
 default:
   hipaches: ['blue4.koffiedik.net:6379']
-  daemons: ['blue4.koffiedik.net:4243']
+  daemons: ['localhost:4243']
   ssh_user: "docker"
-  base_domain: ['tea.project.io']
-  use_ssh: True
+  use_ssh: False
   registry_login: "$REGISTRY_USER:$REGISTRY_PASS:$REGISTRY_EMAIL"

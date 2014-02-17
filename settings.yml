@@ -1,5 +1,4 @@
 default:
   hipaches: ['blue3.koffiedik.net:6379']
-  daemons: ['http://blue3.koffiedik.net:4243']
-  base_domain: ['tea.project.io']
+  daemons: ['http://localhost:4243']
   use_ssh: False

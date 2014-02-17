@@ -76,8 +76,20 @@ class TestGetStatus(BaseTestCase):
             self.assertIn(status, acceptedValues)
 
 
+class TestRunningStatus(BaseTestCase):
+    def runTest(self):
+        self.application.create_containers()
+        create_results = self.application.start_containers()
+        res = self.application.get_status()
+
+        acceptedValues = ['stopped', 'running', 'doesnotexist']
+        for status in res:
+            self.assertIn(status, acceptedValues)
+
+
 class TestPullContainer(BaseTestCase):
     def runTest(self):
+        login = self.application.login_registry()
         results = self.application.pull_image()
         for result in results:
             self.assertNotIn("Authentication is required", result)
